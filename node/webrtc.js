@@ -23,6 +23,8 @@ function gotIceCandidate(event) {
         var hmmm = JSON.stringify({'type': 'ice', 'ice': event.candidate, 'id': id});
         serverConnection.send(hmmm);
     }
+    // if(event.target.iceConnectionState === "connected")
+        // event.target.dataChannel.send("olá!");
 }
 
 /*function createdDescription(description) {
@@ -47,43 +49,48 @@ function errorHandler(error) {
     console.log(error);
 }
 
-function sendMessage() {
+function sendTextMessage() {
+    var i = inputI.value;
     var message = messageInputBox.value;
-    dataChannel.send(message);
+    fingerTable[i-1].sendChannel.send(JSON.stringify(message));
     messageInputBox.value = "";
+    inputI.value = "";
     messageInputBox.focus();
 }
+
+function sendMessage(message ,i) {
+    fingerTable[i].sendChannel.send(message);
+}
+
 
 // Handle status changes on the local end of the data
 // channel; this is the end doing the sending of data
 // in this example.
 function handleSendChannelStatusChange(i, l) {
-    console.log("datachannel change  ::" + i + "::" + l);
     var state;
+    console.log("sendchannel change  ::" + i + "::" + l);
     if (l === "ft") {
-        if (fingerTable[i].dataChannel) {
-            state = fingerTable[i].dataChannel.readyState;
-            console.log("dataChannel state: " + state);
+        if (fingerTable[i].sendChannel) {
+            state = fingerTable[i].sendChannel.readyState;
+            console.log("sendChannel state: " + state);
 
             if (state === "open") {
                 messageInputBox.disabled = false;
                 messageInputBox.focus();
                 sendButton.disabled = false;
                 disconnectButton.disabled = false;
-                connectButton.disabled = true;
             } else {
                 printFTButton.disabled = false;
-                messageInputBox.disabled = true;
-                sendButton.disabled = true;
-                connectButton.disabled = false;
+                // messageInputBox.disabled = true;
+                // sendButton.disabled = true;
                 disconnectButton.disabled = true;
             }
         }
     }
     if(l === "tp"){
-        if (tempPeers[i].dataChannel) {
-            state = tempPeers[i].dataChannel.readyState;
-            console.log("dataChannel state: " + state);
+        if (tempPeers[i].sendChannel) {
+            state = tempPeers[i].sendChannel.readyState;
+            console.log("sendChannel state: " + state);
 
             if (state === "open") {
                 messageInputBox.disabled = false;
@@ -93,8 +100,8 @@ function handleSendChannelStatusChange(i, l) {
                 connectButton.disabled = true;
             } else {
                 printFTButton.disabled = false;
-                messageInputBox.disabled = true;
-                sendButton.disabled = true;
+                // messageInputBox.disabled = true;
+                // sendButton.disabled = true;
                 connectButton.disabled = false;
                 disconnectButton.disabled = true;
             }
@@ -140,8 +147,8 @@ function disconnectPeers() {
 
     connectButton.disabled = false;
     disconnectButton.disabled = true;
-    sendButton.disabled = true;
+    // sendButton.disabled = true;
 
     messageInputBox.value = "";
-    messageInputBox.disabled = true;
+    // messageInputBox.disabled = true;
 }

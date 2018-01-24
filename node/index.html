@@ -13,25 +13,29 @@
         <meta charset="utf-8">
         <link rel="icon" href="https://cdn1.iconfinder.com/data/icons/social-messaging-ui-color-shapes-2/128/marijuana-circle-green-512.png">
     </head>
-            
 
 
     <body>
         <div class="controlbox">
-            <button id="connectButton" name="connectButton" onclick="start(true)">
-              Connect
-            </button>
             <button id="disconnectButton" name="disconnectButton" onclick="disconnectPeers(true)" disabled>
               Disconnect
             </button>
 
-            <button id="printFTButton" name="printFTButton" onclick="printFTButton(true)">
-                printFTButton
+            <button id="joinButton" name="joinNetwork" onclick="joinNetwork(true)">
+                Join Network
+            </button>
+
+            <button id="printFTButton" name="printFTButton" onclick="printFT(true)">
+                Print Finger Table
+            </button>
+
+            <button id="stabilizeBtn" name="stabilizeBtn" onclick="stabilize()">
+                Stabilize
             </button>
 
         </div>
 
-        <br />
+        <hr />
         <div>
             <div>
                 ID:
@@ -46,13 +50,30 @@
                 <p id = "pred"></p>
             </div>
         </div>
-        <br />
+
+        <hr />
+        <div>
+            <label for="message">Find key successor
+                <input type="message" min="1" max="1" name="fi" id="key" placeholder="key, eg:'4b84b15bff6ee5796152495a230e45e3d7e947d9'" inputmode="latin" size=60 maxlength=120>
+            </label>
+
+            <button id="findKBtn" name="findKBtn" onclick="fkBtnHandler()" >
+                Find
+            </button>
+
+
+
+        </div>
+        <hr/>
         <div class="messagebox">
+            <label for="message">Choose FT element
+                <input type="number" min="1" max="1" name="fi" id="fi" placeholder="i in FT" inputmode="latin" size=60 maxlength=120>
+            </label>
             <label for="message">Enter a message:
                 <input type="text" name="message" id="message" placeholder="Message text" inputmode="latin" size=60 maxlength=120>
             </label>
 
-            <button id="sendButton" name="sendButton" onclick="sendMessage()" disabled >
+            <button id="sendButton" name="sendButton" onclick="sendTextMessage()" >
                 Send
             </button>
 
@@ -60,7 +81,24 @@
                 <p>Messages received:</p>
             </div>
         </div>
-        <!--<input type="button" id="start" onclick="start(true)" value="Start Video"></input>-->
+
+        <hr/>
+        <div class="imageBox">
+            <label for="message">Choose FT element
+                <input type="number" min="1" max="1" name="fi" id="fi2" placeholder="i in FT" inputmode="latin" size=60 maxlength=120>
+            </label>
+            <label for="message">Choose File
+                <input type="file" name="file" id="file" placeholder="choose File" onchange="readmultifiles(this.files)" multiple="">
+            </label>
+            <button id="imgsendButton" name="sendButton" onclick="sendImg()" >
+                Send
+            </button>
+            <div id="bag">
+                <ul/>
+                <img id="pre" src="">
+            </div>
+        </div>
+
 
         <script type="text/javascript">
             pageReady();
