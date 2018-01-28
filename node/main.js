@@ -3,7 +3,7 @@ var id;
 var m = 160;
 var max = bigInt(2).pow(160);
 var sdpStatus = false;
-var fingerTable = [160];
+var fingerTable = [];
 var tempPeers = [];
 var pred = {
     id: null,
@@ -12,6 +12,9 @@ var pred = {
 var pendingFinds = [];
 var files = ["9e4af7f6b3fe2391aaa4e9a8ce4193df8dc48450"];
 var pic;
+var stableCount = 0;
+var downList = [];
+var downCount = [];
 
 //Configuraçao dos servidores ICE
 var peerConnectionConfig = {
@@ -146,7 +149,7 @@ function gotMessageFromServer(message) {
                     //dest = fingerTable[n.n].id;
                     dest = msg.id;
                     /*data = JSON.parse(msg.data);*/
-                    console.log("pc.signalingState / connectionState: " + fingerTable[n.n].pc.signalingState + " / " + fingerTable[n.n].pc.connectionState);
+                    console.log(n.n + ".signalingState: " + fingerTable[n.n].pc.signalingState);
                     console.log("ldesc / remdesc -> " + fingerTable[n.n].pc.localDescription + " / " + fingerTable[n.n].pc.remoteDescription);
 
                     fingerTable[n.n].pc.setRemoteDescription(new RTCSessionDescription(msg.data)).then(function () {
@@ -183,7 +186,11 @@ function gotMessageFromServer(message) {
 
         case "ice":
             n = checkTables(msg.id, false);
-            console.log("n, n.n : "+n+", "+n.n);
+            console.log("n, n.n : " + JSON.stringify(n) + ", " + n.n);
+            if (n.n === undefined) {
+                n = checkTables(msg.id, true);
+                connectTo(n.n);
+            }
             console.log("ice! /sdptatus:" + fingerTable[n.n].sdpStatus);
             if (n.t === "FT") {
                 if (fingerTable[n.n].sdpStatus && n !== null) {
@@ -193,6 +200,7 @@ function gotMessageFromServer(message) {
                     console.log("ldesc / remdesc -> " + fingerTable[n.n].pc.localDescription + " / " + fingerTable[n.n].pc.remoteDescription);
                 } else if (n !== null) {
                     fingerTable[n.n].pendingICE.push(msg.ice);
+                    console.log("ice push (" + n.n + ")");
                 }
             }
             if (n.t === "TP") {
@@ -201,6 +209,7 @@ function gotMessageFromServer(message) {
                     tempPeers[n.n].pc.addIceCandidate(new RTCIceCandidate(msg.ice)).catch(errorHandler);
                 } else if (n !== null) {
                     fingerTable[n.n].pendingICE.push(msg.ice);
+                    console.log("ice push (" + n.n + ")");
                 }
             }
 
@@ -210,7 +219,7 @@ function gotMessageFromServer(message) {
 
 //mensagens recebidas pelo datachannel
 function handleReceiveMessage(event) {
-    console.log("Datachannel! From: " + event.target.label + " /msg: " + event.data);
+    console.log("Datachannel!"/* From: " + event.target.label + " /msg: " + event.data*/);
 
     var msg = JSON.parse(event.data);
 
@@ -297,7 +306,7 @@ function handleReceiveMessage(event) {
         case "stabilize":
             if (pred.id !== null) {
                 n = checkTables(msg.id, false);
-                console.log("sending pred to: " + fingerTable[n.n].id + " " + msg.id);
+                // console.log("sending pred to: " + fingerTable[n.n].id + " " + msg.id);
                 if (n.t === "FT") {
                     fingerTable[n.n].sendChannel.send(JSON.stringify({
                         "type": "pred",
@@ -320,7 +329,7 @@ function handleReceiveMessage(event) {
                 console.log("unstable!");
                 n = checkTables(msg.pred, true);
                 connectTo(n.n);
-            } else console.log("stable!");
+            } //else console.log("stable!");
             break;
 
         case "img":
@@ -343,7 +352,13 @@ function handleReceiveMessage(event) {
 function startUp(i, t) {
     console.log("starting up " + i + t);
     if (t === "ft") {
-        fingerTable[i].pc.onicecandidate = gotIceCandidate;
+        fingerTable[i].sdpStatus = false;
+        fingerTable[i].pc.onicecandidate = function (event) {
+            if (event.candidate != null) {
+                var hmmm = JSON.stringify({'type': 'ice', 'ice': event.candidate, 'id': id, 'dest': fingerTable[i].id});
+                serverConnection.send(hmmm);
+            }
+        };
         fingerTable[i].sendChannel = fingerTable[i].pc.createDataChannel("sendChannel." + i + "." + t);
         fingerTable[i].pc.ondatachannel = function (event) {
             fingerTable[i].receiveChannel = event.channel;
@@ -353,23 +368,37 @@ function startUp(i, t) {
                     fingerTable[i].receiveChannel.readyState);
             };
             fingerTable[i].receiveChannel.onclose = function () {
-                console.log("(" + i + ") Receive channel's status has changed to " +
-                    fingerTable[i].receiveChannel.readyState);
+                console.log("(" + i + ") Receive channel's status has changed to closed //" + fingerTable[i].sendChannel.readyState);
+                if (i === 0 && fingerTable[i].sendChannel.readyState === 'closed') {
+                    console.log("restarting succ");
+                    serverConnection.send(JSON.stringify({'type': "join", 'id': id, 'dest': fingerTable[0].id}));
+                    newSucc(fingerTable[0].id);
+                    connectTo(0);
+                }
+                else if (fingerTable[i].sendChannel.readyState === 'closed' /*&& fingerTable[i].sdpStatus === true*/) {
+                    restartFinger(i);
+                }
             };
         };
         // console.log("receiveChannel: "+fingerTable[i].receiveChannel.readyState+ " /sendChannel: "+fingerTable[i].sendChannel.readyState);
-        fingerTable[i].sendChannel.onopen = handleSendChannelStatusChange(i, "ft");
-        fingerTable[i].sendChannel.onclose = handleSendChannelStatusChange(i, "ft");
+        fingerTable[i].sendChannel.onopen = handleSendChannelStatusChange(i, "ft", "open");
+        fingerTable[i].sendChannel.onclose = handleSendChannelStatusChange(i, "ft", "close");
         fingerTable[i].pc.onsignalingstatechange = function () {
-            console.log("SignalingState: " + fingerTable[i].pc.signalingState);
-            console.log("ldesc / remdesc -> " + fingerTable[i].pc.localDescription + " / " + fingerTable[i].pc.remoteDescription);
+            console.log("SignalingState(" + i + "): " + fingerTable[i].pc.signalingState);
+            //console.log("ldesc / remdesc -> " + fingerTable[i].pc.localDescription + " / " + fingerTable[i].pc.remoteDescription);
             if (fingerTable[i].pc.signalingState === "stable" && fingerTable[i].pc.localDescription !== null && fingerTable[i].pc.remoteDescription) {
                 fingerTable[i].pendingICE.forEach(function (value) {
                     fingerTable[i].pc.addIceCandidate(value).catch(errorHandler);
+                    console.log("ice pop (" + i + ")");
                 });
             }
+            if (fingerTable[i].pc.signalingState === "closed") {
+                // aux = fingerTable[i].id;
+                // fingerTable[i] = newFTElement(fingerIndex(i), aux);
+                // startUp(i, "ft");
+                // connectTo(i);
+            }
         };
-        fingerTable[i].sdpStatus = false;
     }
     if (t === "tp") {
         fingerTable[i].pc.onicecandidate = gotIceCandidate;
@@ -378,8 +407,8 @@ function startUp(i, t) {
             tempPeers[i].receiveChannel = event.channel;
             tempPeers[i].receiveChannel = handleReceiveMessage;
         });
-        tempPeers[i].sendChannel.onopen = handleSendChannelStatusChange(i, "tp");
-        tempPeers[i].sendChannel.onclose = handleSendChannelStatusChange(i, "tp");
+        tempPeers[i].sendChannel.onopen = handleSendChannelStatusChange(i, "tp", "open");
+        tempPeers[i].sendChannel.onclose = handleSendChannelStatusChange(i, "tp", "close");
         tempPeers[i].pc.onsignalingstatechange = function () {
             console.log("SignalingState: " + tempPeers[i].pc.signalingState);
             console.log("ldesc / remdesc -> " + tempPeers[i].pc.localDescription + " / " + tempPeers[i].pc.remoteDescription);
@@ -393,7 +422,7 @@ function startUp(i, t) {
 function connectTo(i) {
     fingerTable[i].pc.createOffer().then(createdDescription2).then(function (sdp) {
         fingerTable[i].pc.setLocalDescription(sdp).then(function () {
-            console.log("connectTo_ sdp: " + sdp);
+            console.log("connectTo_ sdp(" + i + "): " + sdp);
             serverConnection.send(sendThroughServer(sdp, fingerTable[i].id, type = 'sdp'));
         });
     }).catch(errorHandler);
@@ -439,7 +468,8 @@ function newFTElement(i, id) {
 function joinNetwork(event) {
     serverConnection.send(JSON.stringify({'type': "newNode"}));
 
-    setInterval(stabilize, 5000);
+    setInterval(stabilizeF, 1000);
+    //setInterval(checkConn, 1000);
 
 }
 
@@ -449,10 +479,12 @@ function newSucc(succ) {
     var auxPeer;
     if (fingerTable.length > 0) {
         // auxPeer = fingerTable[0];
+        fingerTable[0].pc.close();
         fingerTable.shift();
     }
     fingerTable.unshift(newFTElement(fingerIndex(0), succ));
     startUp(0, "ft");
+    serverConnection.send(JSON.stringify({'type': "join", 'id': id, 'dest': succ}));
     // var n = checkTables(auxPeer.id, true);
     succtxt.textContent = succ;
 }
@@ -481,11 +513,11 @@ function checkTables(newid, add) {
 
     }*/
     var n = inFT(newid);
-    console.log("!!N: " + n);
+    // console.log("!!N: " + n);
     if (n === null) {
         console.log('add: ' + add);
         n = checkFT(newid);
-        console.log('n2: '+ n.length);
+        console.log('n2(' + n.length + '): ' + n);
         if (n.length === 0) {
             n = inTP(newid);
             loc = "TP";
@@ -497,46 +529,48 @@ function checkTables(newid, add) {
             }
         } else {
             loc = "FT";
-            var flag = true;
-            fingerTable.forEach(function (value, index) {
-                console.log("value.i/index/id " + value.i.toString() + " / " + index + " / " + value.id);
-                n.forEach(function (v, i) {
-                    if (v.equals(value.i)) {
-                        console.log("v==i");
-                        flag = false;
-                        if (value.id === newid) {
-                            k = index;
-                            return {t: loc, n: n};
-                        } else {
-                            if (index === 0 && add) {
-                                console.log("check produced new succ");
-                                newSucc(newid);
-                                connectTo(0);
-                            } else if (add) {
-                                console.log("nao foi succ, foi " + index);
-                                fingerTable[index] = newFTElement(v, newid);
-                                startUp(index, "ft");
-                            }
-                            console.log("k: " + index);
-                            k = index;
-                        }
+            // fingerTable[n[0]] = newFTElement(n[0], newid);
+
+            flag = true;
+            if (fingerTable[n[0]] !== undefined) {
+                if (fingerTable[n[0]].id === newid) {
+
+                    k = n[0];
+                    return {t: loc, n: k};
+                }
+            }
+            if (add) {
+                if (n[0] === 0) {
+                    console.log("check produced new succ");
+                    aux = fingerTable[0].id;
+                    newSucc(newid);
+                    connectTo(0);
+                    flag = false;
+                    /*if (aux !== id) {
+                        aux = checkTables(aux, true);
+                        if (aux.n !== undefined)
+                            connectTo(aux.n);
+                    }*/
+                } else {
+                    console.log("nao foi succ, foi " + n[0]);
+                    aux = id;
+                    if (fingerTable[n[0]] !== undefined) {
+                        aux = fingerTable[n[0]].id;
+                        fingerTable[n[0]].pc.close();
                     }
-                });
-                /*
-                                if (n.includes(value.i)) {
-                                    if(index===0){
-                                        console.log("check produced new succ");
-                                        newSucc(id);
-                                    }else {
-                                        console.log("nao foi succ, foi "+index);
-                                        fingerTable[index] = newFTElement(value.i, id);
-                                        startUp(index, "ft");
-                                    }
-                                    console.log(typeof index);
-                                    k = index;
-                                }
-                */
-            });
+                    fingerTable[n[0]] = newFTElement(fingerIndex(n[0]), newid);
+                    startUp(n[0], "ft");
+                    flag = false;
+                    /*if (aux !== id) {
+                        aux = checkTables(aux, true);
+                        if (aux.n !== undefined)
+                            connectTo(aux.n);
+                    }*/
+                }
+                console.log("k: " + n[0]);
+                k = n[0];
+            }
+
             if (flag && add) {
                 // var flag2 = true;
                 // var i = ;
@@ -561,7 +595,7 @@ function inFT(id) {
     var foo = null;
     fingerTable.forEach(function (item, index, array) {
         if (item.id === id) {
-            console.log("found " + id + " in " + index + "   /" + item.id);
+            // console.log("found " + id + " in " + index + "   /" + item.id);
             foo = index;
         }
     });
@@ -600,17 +634,17 @@ function checkFT(dest) {
                 (bidest.greaterOrEquals(fi) && biid.greater(biprev) && bidest.greaterOrEquals(biprev)) ||
                 (bidest.greaterOrEquals(fi) && fi.greater(biprev) && bidest.greater(biprev))) {
 
-                newfinger.push(fi);
+                newfinger.push(j - 1);
                 if (j < 5) console.log("checkFT_ j d: " + j);
             }
         }
         else {
             if (j < 0) console.log("checkFT_ j u: " + j);
-            newfinger.push(fi)
+            newfinger.push(j - 1)
             //if(((j/m)*100)%10===0)
             //console.log("filling the table "+(j/m)*100+"%");
         }
-        prev = fi;
+        prev = j;
     }
     //console.log("new finger: " + newfinger);
     return newfinger;
@@ -620,7 +654,8 @@ function checkFT(dest) {
 function printFT(event) {
     writeP("i / id / Signaling State / Data Channels (Send/Receive)/ 2^(i-1)")
     fingerTable.forEach(function (value, index) {
-        writeP((index + 1) + "\t/ " + value.id + "\t/ " + value.pc.signalingState + "\t/ (" + value.sendChannel.readyState + "/" + value.receiveChannel.readyState + ") / " + value.i.toString());
+
+        writeP((index + 1) + "\t/ " + value.id + "\t/ " + value.pc.signalingState + "\t/ (" + value.sendChannel.readyState + /*"/" + value.receiveChannel.readyState + */") / " + value.i.toString());
     })
 }
 
@@ -677,11 +712,60 @@ function fkBtnHandler() {
     // });
 }
 
-function stabilize() {
-    if (fingerTable.length >= 1) {
-        fingerTable[0].sendChannel.send(JSON.stringify({"type": "stabilize", "id": id}));
+function stabilizeF() {
+    if (fingerTable.length >= 1 && fingerTable[0].sendChannel !== undefined) {
+        if (fingerTable[0].sendChannel.readyState === 'open') {
+            fingerTable[0].sendChannel.send(JSON.stringify({"type": "stabilize", "id": id}));
+        }
     }
 }
+
+function checkConn() {
+    var fleg = false;
+    fingerTable.forEach(function (value, index) {
+        if (value.sendChannel.readyState === "connecting") {
+            restartFinger(index);
+            if (downList.indexOf(index)>=0) {
+                i = downList.indexOf(index);
+                downCount[i]++;
+                if (downCount[i] > 5) {
+                    fleg = true;
+                    downList.splice(i, 1);
+                    downCount.splice(i, 1);
+                    if(i === 0){
+                        fingerTable.shift();
+                        newSucc(fingerTable[0].id);
+                        connectTo(0);
+                    } else {
+                        fingerTable.splice(i, 1);
+                    }
+                }
+            } else {
+                downList.push(index);
+                downCount.push(0);
+            }
+        } else if (downList.indexOf(index)>=0) {
+            i = downList.indexOf(index);
+            downList.splice(i, 1);
+            downCount.splice(i, 1);
+        }
+    });
+    if(fleg){
+        fingerTable.forEach(function (value, index) {
+            value.i = fingerIndex(index);
+        })
+    }
+}
+
+function restartFinger(i) {
+    console.log("restarting finger No " + i);
+    auxID = fingerTable[i].id;
+    fingerTable[i] = newFTElement(fingerIndex(i), auxID);
+    startUp(i, "ft");
+    connectTo(i);
+}
+
+//Images Bigodes
 
 function readmultifiles(files) {
 
