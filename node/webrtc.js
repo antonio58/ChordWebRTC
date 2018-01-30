@@ -27,16 +27,7 @@ function gotIceCandidate(event) {
         // event.target.dataChannel.send("olá!");
 }
 
-/*function createdDescription(description) {
-    console.log('created description: ', description);
-
-    peerConnection.setLocalDescription(description).then(function () {
-        serverConnection.send(JSON.stringify({'type': 'sdp', 'sdp': peerConnection.localDescription, 'id': id
-        }));
-    }).catch(errorHandler);
-}*/
-
-function createdDescription2(description) {
+function createdDescription(description) {
     console.log('created description 2: ', description);
     return description;
     //peerConnection.setLocalDescription(description);
@@ -62,7 +53,6 @@ function sendMessage(message ,i) {
     fingerTable[i].sendChannel.send(message);
 }
 
-
 // Handle status changes on the local end of the data
 // channel; this is the end doing the sending of data
 // in this example.
@@ -73,6 +63,8 @@ function handleSendChannelStatusChange(i, l, st) {
         if (fingerTable[i].sendChannel) {
             state = fingerTable[i].sendChannel.readyState;
             console.log("sendChannel state: " + state);
+
+
 
             if (state === "open") {
                 messageInputBox.disabled = false;

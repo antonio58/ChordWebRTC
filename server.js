@@ -39,6 +39,12 @@ var handleRequest = function (request, response) {
     } else if (request.url === '/webrtc.js') {
         response.writeHead(200, {'Content-Type': 'application/javascript'});
         response.end(fs.readFileSync('node/webrtc.js'));
+    } else if (request.url === '/Chord.js') {
+        response.writeHead(200, {'Content-Type': 'application/javascript'});
+        response.end(fs.readFileSync('node/Chord.js'));
+    } else if (request.url === '/Files.js') {
+        response.writeHead(200, {'Content-Type': 'application/javascript'});
+        response.end(fs.readFileSync('node/Files.js'));
     }
     else if (request.url === '/http_peterolson.github.com_BigInteger.js_BigInteger.js') {
         response.writeHead(200, {'Content-Type': 'application/javascript'});
@@ -82,6 +88,15 @@ wss.on('connection', function (ws, req) {
         console.log("\nip: " + ip + " /id: "+msg.id+" /dest: "+msg.dest+" ("+currentDate.getHours()+":"+currentDate.getMinutes()+":"+currentDate.getSeconds()+")");
         console.log("on msg: " + msg.type);
 
+        var flag = true;
+        clientMap.forEach(function (item, index, array) {
+            if (item.ip === ip) {
+                flag = false
+            }
+        });
+        if (flag) {
+            clientMap.push(newMapElement(ip, ws));
+        }
 
         switch (msg.type) {
             case "newNode":
@@ -91,29 +106,27 @@ wss.on('connection', function (ws, req) {
                 }
                 id = sha1(ip).slice(0);
 
-                var flag = true;
-
                 clientMap.forEach(function (item, index, array) {
                     if (item.ip === ip) {
-                        flag = false
+                        item.id = id;
                     }
                 });
-                if (flag) {
-                    clientMap.push(newMapElement(ip, id, ws));
-                }
-                console.log("\nso id: " + id);
+
+
                 var succ = findSuccessor(id);
-                wss.send(JSON.stringify({'type': "newNode", 'newid': id, 'succ': succ, 'id': 0}), ip, null);
-
+                try {
+                    wss.send(JSON.stringify({'type': "newNode", 'newid': id, 'succ': succ, 'id': 0}), ip, null);
+                } catch (e) {console.log("error: "+e);}
                 break;
 
-            /*case "sdp":
-                wss.send(message, null, msg.dest);
+            case "fileID":
+                console.log(msg);
+                id = sha1(msg.name);
+                try {
+                    console.log("sending fileID to "+ip);
+                    wss.send(JSON.stringify({type: "fileID", fileid: id, /*id:msg.id,*/ i:msg.i, name:msg.name}), ip, null);
+                } catch (e) {console.log("fileID error: "+e);}
                 break;
-
-            case "ice":
-                wss.broadcast(message);
-                break;*/
 
             default:
                 if (msg.dest != null) {
@@ -157,11 +170,11 @@ wss.broadcast = function (data) {
 
 console.log('Server running. Visit https://localhost:' + HTTPS_PORT + ' in Firefox/Chrome (note the HTTPS; there is no HTTP -> HTTPS redirect!)\n');
 
-function newMapElement(ip, id, ws) {
+function newMapElement(ip, ws) {
     var me = {
-        id: id,
         ip: ip,
-        ws: ws,
+        ws: ws
+
     };
     return me;
 }
