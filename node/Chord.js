@@ -1,5 +1,7 @@
 var ffcount = 0;
 var scanCount = 0;
+var distCount = 0;
+var pings = [];
 
 
 //novo elemento da tabela de peers temporarios
@@ -203,9 +205,24 @@ function checkConn() {
     var fleg = false;
 
     fingerTable.forEach(function (value, index) {
+        var flog = true;
+        var j = 0;
+        pings.forEach(function (value2) {
+            if(value2.id === value.id)
+                flog = false;
+                j = value2.c;
+        });
+        if(flog){
+            pings.push({id: value.id, c:0});
+        }
+
+        if(value.receiveChannel) {
+            value.sendChannel.send(JSON.stringify({type: "ping", id: id}));
+            pings[j].c++;
+        }
 
 
-        if (value.sendChannel.readyState === "connecting" || value.sendChannel.readyState === "closed") {
+        if (value.sendChannel.readyState === "connecting" || value.sendChannel.readyState === "closed" || j>10) {
 
             if (downList.indexOf(index) >= 0) {
                 console.log("cc +1 in " + index);
@@ -277,15 +294,42 @@ function askSucc() {
 }
 
 function scanFiles(){
+    inputI3.setAttribute("max", fileList.length);
+    for (i = 0; i < localStorage.length; i++) {
+        if (!fileList.includes(localStorage.key(i)))
+            fileList.push(localStorage.key(i));
+    }
+
     if (scanCount >= fingerTable.length-1)
         scanCount = 0;
     if (fingerTable[scanCount] !== undefined) {
         // console.log("asking finger " + scanCount + " his file list");
-        try {
-            fingerTable[scanCount].sendChannel.send(JSON.stringify({type: "getFileList", id: id}));
-        } catch (e) {console.log("error: "+e);}
+        try {fingerTable[scanCount].sendChannel.send(JSON.stringify({type: "getFileList", id: id}));} catch (e) {console.log("error: "+e);}
     }
     scanCount++;
+}
+
+function distributeFiles(){
+    if(distCount >= localStorage.length)
+        distCount = 0;
+    if(localStorage.key(distCount) !== undefined && localStorage.length>0) {
+        k = localStorage.key(distCount);
+        n = findKeySuccessor(k, id);
+        if (n === "succ") {
+            console.log("!");
+            fingerTable[0].sendChannel.send(JSON.stringify({
+                "type": "askF",
+                "fileid": k,
+                "id": id
+            }));
+        }
+        else if (n === "pending") {
+            // console.log("pending ::"+k);
+            pendingFinds.push({"type": "askF", "source": id, "key":k, "id": id});
+        }
+        // else console.log("none: "+n);
+        distCount++;
+    }
 }
 
 /////////////Outros
@@ -321,7 +365,7 @@ function fixFingers() {
     aux3 = aux3.concat(aux2);
     console.log("aux: " + aux + " / aux2: " + aux2 + " / aux3: " + aux3);
 
-    findKeySuccessor(aux);
+    n = findKeySuccessor(aux);
     ffcount++;
     if (ffcount === fingerTable.length)
         ffcount = 0;

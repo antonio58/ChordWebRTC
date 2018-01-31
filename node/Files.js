@@ -4,7 +4,6 @@ var caralho;
 function readmultifiles(files) {
 
     var ul = document.querySelector("#bag>ul");
-    console.log(' ul in here ' + ul);
     while (ul.hasChildNodes()) {
         ul.removeChild(ul.firstChild);
     }
@@ -13,22 +12,26 @@ function readmultifiles(files) {
         var reader = new FileReader();
         reader.readAsDataURL(file);
         reader.onload = function (e) {
-
-
             var bin = e.target.result; //get file content
             caralho = bin;
-            pendingFiles.forEach(function (value) {
+            pendingFiles.forEach(function (value, index) {
                 // console.log("pendingfile ("+j+")"+JSON.stringify(value));
-                if(value.i === j){
-                    // console.log("pushing raw ::"+bin);
+                if (value.i === j) {
+                    console.log("pushing raw ::"+bin);
                     value.raw = bin;
                 }
+                if (value.raw === "nope") {
+                    pendingFiles.splice(index, 1);
+                    console.log("upload failed");
+                } else {
+                    console.log("asking fileID");
+                    serverConnection.send(JSON.stringify({type: "fileID", name: value.name, i: value.i, id: id}))
+                }
             });
-
             // do sth with text
             // console.log('this size ' + bin.length);
-            var li = document.createElement("li");
-            li.innerHTML = bin;
+            //var li = document.createElement("li");
+            //li.innerHTML = bin;
             //ul.appendChild(li);
             //document.getElementById("preview").src = bin;
         }
@@ -37,14 +40,15 @@ function readmultifiles(files) {
     for (var i = 0; i < files.length; i++) {
         console.log('this name of file ' + files[i].name);
         console.log('this file ' + i);
-        pendingFiles.push({name:files[i].name, i:i, raw:"nope"});
+        pendingFiles.push({name: files[i].name, i: i, raw: "nope"});
         setup_reader(files[i], i);
     }
 
-    pendingFiles.forEach(function (value) {
-        console.log("asking fileID");
-       serverConnection.send(JSON.stringify({type:"fileID", name:value.name, i:value.i, id:id}))
-    });
+
+}
+
+function uploadFile(){
+
 }
 
 function sendImg() {

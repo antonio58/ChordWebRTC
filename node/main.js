@@ -43,7 +43,8 @@ function pageReady() {
     succtxt = document.getElementById('succ');
     predtxt = document.getElementById('pred');
 
-    sendButton = document.getElementById('sendButton');
+    reqButton = document.getElementById('reqButton');
+    inputI3 = document.getElementById('fk');
     inputI = document.getElementById('fi');
     messageInputBox = document.getElementById('message');
     receiveBox = document.getElementById('receivebox');
@@ -55,10 +56,6 @@ function pageReady() {
     inputKey = document.getElementById('key');
     inputI2 = document.getElementById('fi2');
 
-    for (i = 0; i < localStorage.length; i++) {
-        if (!fileList.includes(localStorage.key(i)))
-            fileList.push(localStorage.key(i));
-    }
 
     //fingerTable = newFingerTable();
 }
@@ -73,6 +70,7 @@ function joinNetwork(event) {
     setInterval(askSucc, 1000);
     setInterval(scanFiles, 1000);
     setInterval(printFL, 1000);
+    setInterval(distributeFiles, 1500);
     // setInterval(fixFingers, 500);
 
 }
@@ -206,7 +204,7 @@ function gotMessageFromServer(message) {
 
         case "fileID":
             console.log("got fileID! ::" + JSON.stringify(msg));
-            pendingFiles.forEach(function (value) {
+            pendingFiles.forEach(function (value, index) {
                 // console.log(value.name+ " /// "+ msg.name);
                 if (value.name === msg.name) {
                     // console.log("aoefoenv:!:!");
@@ -215,6 +213,7 @@ function gotMessageFromServer(message) {
                     }
                     localStorage.setItem(msg.fileid, JSON.stringify({name: value.name, raw: value.raw}));
                 }
+                pendingFiles.splice(index, 1);
             });
             break;
     }
@@ -254,9 +253,9 @@ function handleReceiveMessage(event) {
             break;
 
         case "findKSucc":
-            console.log("findksucc{source:" + msg.source + ", key:" + msg.key + ", id:" + msg.id + "}");
+            // console.log("findksucc{source:" + msg.source + ", key:" + msg.key + ", id:" + msg.id + "}");
             //TODO esta porra não é uma função que aceite thens. Vê lá se te safas doutra maneira. Obrigado
-            n = findKeySuccessor(msg.key, msg.source);//.then(function (n) {
+            n = findKeySuccessor(msg.key, msg.source);
             if (n === "pending") {
                 console.log("pending");
                 pendingFinds.push({"type": msg.type, "source": msg.source, "key": msg.key, "id": msg.id});
@@ -264,7 +263,7 @@ function handleReceiveMessage(event) {
             else if (n === "succ") {
                 n = checkTables(msg.id, false);
                 if (n.t === "FT") {
-                    console.log("found succ! Sending to finger " + n.n);
+                    // console.log("found succ! Sending to finger " + n.n);
                     fingerTable[n.n].sendChannel.send(JSON.stringify({
                         "type": "gotKSucc",
                         "source": msg.source,
@@ -283,43 +282,160 @@ function handleReceiveMessage(event) {
                     }));
                 }
             }
+            else {
+                n = checkTables(msg.id, false);
+                if (n.t === "FT") {
+                    // console.log("found succ! Sending to finger " + n.n);
+                    fingerTable[n.n].sendChannel.send(JSON.stringify({
+                        "type": "gotKSucc",
+                        "source": msg.source,
+                        "key": msg.key,
+                        "id": id,
+                        "succ": id
+                    }));
+                }
+                if (n.t === "TP") {
+                    tempPeers[n.n].sendChannel.send(JSON.stringify({
+                        "type": "gotKSucc",
+                        "source": msg.source,
+                        "key": msg.key,
+                        "id": id,
+                        "succ": id
+                    }));
+                }
+            }
             //});
             break;
 
         case "gotKSucc":
-            console.log("gotSucc{source:" + msg.source + ", key:" + msg.key + ", id:" + msg.id + "}");
-            if (msg.source === id) {
-                console.log("gotksucc source==id");
-                writeFS("key: " + msg.key + " / succ: " + msg.succ);
-                i = inFT(msg.succ);
-                if (i !== null) {
-                    fingerTable[i].sendChannel.send(JSON.stringify({"type": "reqFile", "id": id, "key": msg.key}));
-                } else {
-                    var n = checkTables(msg.succ, true);
-                    if (n.t === "FT") {
-                        if (fingerTable[n.n].sendChannel.readyState === "open") {
+            // console.log("gotSucc{source:" + msg.source + ", key:" + msg.key + ", id:" + msg.id + "}");
+            if (msg.source === id && msg.succ !== id) {
+                var type = null;
+                pendingFinds.forEach(function (value) {
+                    if (value.key === msg.key)
+                        type = value.type;
+                });
+                // console.log("gotksucc source==id");
+                // writeFS("key: " + msg.key + " / succ: " + msg.succ);
+                i = inFT(msg.succ, false);
+                switch (type) {
+                    case "find":
+                        break;
 
-                            fingerTable[n.n].sendChannel.send(JSON.stringify({
-                                "type": "reqFile",
-                                "key": msg.key,
+                    case "send":
+                        console.log("sending file:"+localStorage.getItem(msg.key)+" key: "+msg.key);
+                        if (i !== null) {
+                            fingerTable[i].sendChannel.send(JSON.stringify({
+                                "type": "file",
+                                "fileid": msg.key,
+                                "id": id,
+                                "data": localStorage.getItem(msg.key)
+                            }));
+                        } else {
+                            var n = checkTables(msg.succ, true);
+                            if (n.t === "FT") {
+                                if (fingerTable[n.n].sendChannel.readyState === "open") {
+                                    fingerTable[n.n].sendChannel.send(JSON.stringify({
+                                        "type": "file",
+                                        "fileid": msg.key,
+                                        "id": id,
+                                        "data": localStorage.getItem(msg.key)
+                                    }));
+                                } else
+                                    pendingMsg.push(JSON.stringify({
+                                        "type": "file",
+                                        "fileid": msg.key,
+                                        "id": id,
+                                        "data": localStorage.getItem(msg.key)
+                                    }));
+                            }
+                            if (n.t === "TP") {
+                                tempPeers[n.n].sendChannel.send(JSON.stringify({
+                                    "type": "gotKSucc",
+                                    "key": msg.key,
+                                    "id": id
+                                }));
+                            }
+                        }
+                        break;
+
+                    case "askF":
+                        if (i !== null) {
+                            fingerTable[i].sendChannel.send(JSON.stringify({
+                                "type": "askF",
+                                "fileid": msg.key,
                                 "id": id
                             }));
-                        } else
-                            pendingMsg.push(JSON.stringify({
+                        } else {
+                            var n = checkTables(msg.succ, true);
+                            if (n.t === "FT") {
+                                if (fingerTable[n.n].sendChannel.readyState === "open") {
+                                    fingerTable[n.n].sendChannel.send(JSON.stringify({
+                                        "type": "askF",
+                                        "fileid": msg.key,
+                                        "id": id
+                                    }));
+                                } else
+                                    pendingMsg.push(JSON.stringify({
+                                        "type": "askF",
+                                        "fileid": msg.key,
+                                        "id": id
+                                    }));
+                            }
+                            if (n.t === "TP") {
+                                tempPeers[n.n].sendChannel.send(JSON.stringify({
+                                    "type": "askF",
+                                    "fileid": msg.key,
+                                    "id": id
+                                }));
+                            }
+                        }
+                        break;
+
+                    case "req":
+                        console.log("req k/i"+msg.key+" / "+i);
+                        if (i !== null) {
+                            fingerTable[i].sendChannel.send(JSON.stringify({
                                 "type": "reqFile",
-                                "key": msg.key,
                                 "id": id,
-                                "dest": fingerTable[n.n].id
+                                "key": msg.key
                             }));
-                    }
-                    if (n.t === "TP") {
-                        tempPeers[n.n].sendChannel.send(JSON.stringify({
-                            "type": "gotKSucc",
-                            "key": msg.key,
-                            "id": id
-                        }));
-                    }
+                        }
+                        else {
+                            var n = checkTables(msg.succ, true);
+                            if (n.t === "FT") {
+                                if (fingerTable[n.n].sendChannel.readyState === "open") {
+
+                                    fingerTable[n.n].sendChannel.send(JSON.stringify({
+                                        "type": "reqFile",
+                                        "key": msg.key,
+                                        "id": id
+                                    }));
+                                } else
+                                    pendingMsg.push(JSON.stringify({
+                                        "type": "reqFile",
+                                        "key": msg.key,
+                                        "id": id,
+                                        "dest": fingerTable[n.n].id
+                                    }));
+                            }
+                            if (n.t === "TP") {
+                                tempPeers[n.n].sendChannel.send(JSON.stringify({
+                                    "type": "gotKSucc",
+                                    "key": msg.key,
+                                    "id": id
+                                }));
+                            }
+                        }
+                        break;
                 }
+
+            } else if (msg.succ = id) {
+                // console.log("It's me!");
+                /*pendingFinds.forEach(function (value) {
+                    if (value.key === msg.key)
+                        type = value.type;
+                });*/
 
             } else
                 pendingFinds.forEach(function (value, index) {
@@ -432,23 +548,68 @@ function handleReceiveMessage(event) {
 
         case "reqFile":
             console.log("File requisition!");
+            console.log("sending file:"+localStorage.getItem(msg.key)+" key: "+msg.key);
 
             var data = localStorage.getItem(msg.key);
             n = checkTables(msg.id, false);
             if (n.t === "FT") {
-                fingerTable[n.n].sendChannel.send(JSON.stringify({type: "file", id: id, data: localStorage.getItem(msg.key), fileid:msg.key}));
+                fingerTable[n.n].sendChannel.send(JSON.stringify({
+                    type: "file",
+                    id: id,
+                    data: localStorage.getItem(msg.key),
+                    fileid: msg.key
+                }));
             }
             break;
 
+        case "askF":
+            var flig = false;
+            for (i = 0; i < localStorage.length; i++)
+                if (msg.fileid === localStorage.key(i))
+                    flig = true;
+            if (!flig) {
+                n = checkTables(msg.id, false);
+                if (n.t === "FT") {
+                    fingerTable[n.n].sendChannel.send(JSON.stringify({
+                        type: "reqFile",
+                        id: id,
+                        key: msg.fileid
+                    }))
+                }
+            }
+
+
+            break;
+
         case "file":
+            console.log("msg.data: " + msg.data);
+            console.log("msg.data parsed: " + JSON.parse(msg.data));
             var aux = JSON.parse(msg.data);
 
             if (!fileList.includes(msg.fileid)) {
                 fileList.push(msg.fileid);
             }
-            localStorage.setItem(msg.fileid, JSON.stringify({name: aux.name, raw: aux.raw}));
-            break;
+            if (aux.raw !== "none")
+                localStorage.setItem(msg.fileid, JSON.stringify({name: aux.name, raw: aux.raw}));
+            if (aux.raw === "none")
+                console.log("got empty data.raw");
+                break;
 
+        case "ping":
+            n = checkTables(msg.id, false);
+            var flog = true;
+            if(n.t === "FT") {
+                pings.forEach(function (value) {
+                    if (value.id === msg.id) {
+                        value.c = 0;
+                        flog = false;
+                    }
+                });
+                if (flog) {
+                    pings.push({id: msg.id, c: 0});
+                }
+            }
+            break;
         default:
             writeP(event.data);
             break;
@@ -555,11 +716,11 @@ function writeFS(data) {
     var el = document.createElement("p");
     var txtNode = document.createTextNode(data);
 
+    if (findKSuccBox.childNodes.length > 4)
+        findKSuccBox.removeChild(findKSuccBox.firstChild);
+
     el.appendChild(txtNode);
     findKSuccBox.appendChild(el);
-
-    if (findKSuccBox.childNodes.length > 5)
-        findKSuccBox.removeChild(findKSuccBox.firstChild);
 }
 
 //Envia uma mensagem para outro peer através do servidor
@@ -623,7 +784,7 @@ function findKeySuccessor(key, source) {
     if ((bik.greater(biid) && bisuc.greaterOrEquals(bik) && bisuc.greater(biid)) ||
         (bik.greaterOrEquals(bisuc) && bik.greater(biid) && biid.greaterOrEquals(bisuc)) ||
         (bik.greater(biid) && bisuc.greaterOrEquals(bik) && biid.greater(bisuc))) {
-        console.log("(key) succ!");
+        // console.log("(key) succ!");
         return "succ";
     }
     for (var i = fingerTable.length - 1; i >= 0; i--) {
@@ -631,7 +792,7 @@ function findKeySuccessor(key, source) {
         if ((bik.greater(biid) && bik.greaterOrEquals(bif) && bif.greater(biid)) ||
             (bif.greater(bik) && bif.greater(biid) && biid.greater(bik)) ||
             (biid.greater(bif) && bik.greater(bif) && biid.greater(bik))) {
-            console.log("sent findKsucc to finger " + i);
+            // console.log("sent findKsucc to finger " + i);
             fingerTable[i].sendChannel.send(JSON.stringify({
                 "id": id,
                 "type": "findKSucc",
@@ -648,12 +809,18 @@ function findKeySuccessor(key, source) {
 function fkBtnHandler() {
     n = findKeySuccessor(inputKey.value, id);//.then(function (n) {
     if (n === "succ") {
-        fingerTable[0].sendChannel.send(JSON.stringify({
+        console.log("!");
+        /*fingerTable[0].sendChannel.send(JSON.stringify({
             "type": "reqFile",
             "key": inputKey.value,
             "id": id
-        }));
+        }));*/
     }
+    else if (n === "pending") {
+        console.log("pending");
+        pendingFinds.push({"type": "find", "source": id, "key": inputKey.value, "id": id});
+    }
+    else console.log("none: " + n);
     inputKey.value = "";
     // });
 }
@@ -670,6 +837,29 @@ function unpauseStabilize() {
     pauseStabilize = false;
 }
 
+function reqFile(fid, id) {
+    var i = inputI.value;
+    var key = fileList[i - 1];
+
+
+    n = findKeySuccessor(key, id);//.then(function (n) {
+    if (n === "succ") {
+        console.log("!");
+        fingerTable[0].sendChannel.send(JSON.stringify({
+            "type": "reqFile",
+            "key": key,
+            "id": id
+        }));
+    }
+    else if (n === "pending") {
+        console.log("pending");
+        pendingFinds.push({"type": "req", "source": id, "key": key, "id": id});
+    }
+    else
+        console.log("none: " + n);
+
+    inputKey.value = "";
+}
 
 //outros
 function newFingerTable() {

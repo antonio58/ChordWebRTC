@@ -101,8 +101,16 @@
         <input type="file" name="file" id="file" placeholder="Upload File" onchange="readmultifiles(this.files)"
                multiple="">
     </label>
-    <button id="imgsendButton" name="sendButton" onclick="sendImg()">
-        Send
+    <button id="uploadButton" name="uploadButton" onclick="uploadFile()">
+        Request File
+    </button>
+    <br>
+    <label for="message">Choose File
+        <input type="number" min="1" max="1" name="fi" id="fk" placeholder="i in Files" inputmode="latin" size=60
+               maxlength=120>
+    </label>
+    <button id="reqButton" name="requestButton" onclick="reqFile()">
+        Request File
     </button>
 
     <div id="fltable"></div>

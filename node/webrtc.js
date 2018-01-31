@@ -69,12 +69,12 @@ function handleSendChannelStatusChange(i, l, st) {
             if (state === "open") {
                 messageInputBox.disabled = false;
                 messageInputBox.focus();
-                sendButton.disabled = false;
+                reqButton.disabled = false;
                 disconnectButton.disabled = false;
             } else {
                 printFTButton.disabled = false;
                 // messageInputBox.disabled = true;
-                // sendButton.disabled = true;
+                // reqButton.disabled = true;
                 disconnectButton.disabled = true;
             }
         }
@@ -87,13 +87,13 @@ function handleSendChannelStatusChange(i, l, st) {
             if (state === "open") {
                 messageInputBox.disabled = false;
                 messageInputBox.focus();
-                sendButton.disabled = false;
+                reqButton.disabled = false;
                 disconnectButton.disabled = false;
                 connectButton.disabled = true;
             } else {
                 printFTButton.disabled = false;
                 // messageInputBox.disabled = true;
-                // sendButton.disabled = true;
+                // reqButton.disabled = true;
                 connectButton.disabled = false;
                 disconnectButton.disabled = true;
             }
@@ -139,7 +139,7 @@ function disconnectPeers() {
 
     connectButton.disabled = false;
     disconnectButton.disabled = true;
-    // sendButton.disabled = true;
+    // reqButton.disabled = true;
 
     messageInputBox.value = "";
     // messageInputBox.disabled = true;
