@@ -44,7 +44,6 @@ function pageReady() {
     predtxt = document.getElementById('pred');
 
     reqButton = document.getElementById('reqButton');
-    inputI3 = document.getElementById('fk');
     inputI = document.getElementById('fi');
     messageInputBox = document.getElementById('message');
     receiveBox = document.getElementById('receivebox');
@@ -56,6 +55,12 @@ function pageReady() {
     inputKey = document.getElementById('key');
     inputI2 = document.getElementById('fi2');
 
+    reqButton = document.getElementById('reqButton');
+    inputI3 = document.getElementById('fk');
+
+    setImgButton = document.getElementById('setImgButton');
+    inputI4 = document.getElementById('flc');
+    inputI4.setAttribute("max", localStorage.length);
 
     //fingerTable = newFingerTable();
 }
@@ -311,6 +316,7 @@ function handleReceiveMessage(event) {
             // console.log("gotSucc{source:" + msg.source + ", key:" + msg.key + ", id:" + msg.id + "}");
             if (msg.source === id && msg.succ !== id) {
                 var type = null;
+
                 pendingFinds.forEach(function (value) {
                     if (value.key === msg.key)
                         type = value.type;
@@ -596,10 +602,11 @@ function handleReceiveMessage(event) {
                 break;
 
         case "ping":
-            n = checkTables(msg.id, false);
+            n = checkTables(msg.id, true);
             var flog = true;
             if(n.t === "FT") {
-                pings.forEach(function (value) {
+                pings[n.n] = 0;
+                /*pings.forEach(function (value) {
                     if (value.id === msg.id) {
                         value.c = 0;
                         flog = false;
@@ -607,7 +614,7 @@ function handleReceiveMessage(event) {
                 });
                 if (flog) {
                     pings.push({id: msg.id, c: 0});
-                }
+                }*/
             }
             break;
         default:
@@ -668,6 +675,7 @@ function startUp(i, t) {
                 // connectTo(i);
             }
         };
+        pings[i] = 0;
     }
     if (t === "tp") {
         fingerTable[i].pc.onicecandidate = gotIceCandidate;
@@ -799,6 +807,7 @@ function findKeySuccessor(key, source) {
                 "key": key,
                 "source": s
             }));
+            console.log("pending to "+i);
             return "pending";
         }
     }
@@ -838,9 +847,10 @@ function unpauseStabilize() {
 }
 
 function reqFile(fid, id) {
-    var i = inputI.value;
+    var i = inputI3.value;
     var key = fileList[i - 1];
 
+    console.log("requesting key: "+key+" // "+fileList[i-1]);
 
     n = findKeySuccessor(key, id);//.then(function (n) {
     if (n === "succ") {
@@ -852,7 +862,7 @@ function reqFile(fid, id) {
         }));
     }
     else if (n === "pending") {
-        console.log("pending");
+        console.log(n);
         pendingFinds.push({"type": "req", "source": id, "key": key, "id": id});
     }
     else

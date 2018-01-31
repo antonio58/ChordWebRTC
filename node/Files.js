@@ -1,5 +1,5 @@
 var pendingFiles = [];
-var caralho;
+var tempFiles;
 
 function readmultifiles(files) {
 
@@ -17,15 +17,12 @@ function readmultifiles(files) {
             pendingFiles.forEach(function (value, index) {
                 // console.log("pendingfile ("+j+")"+JSON.stringify(value));
                 if (value.i === j) {
-                    console.log("pushing raw ::"+bin);
+                    // console.log("pushing raw ::"+bin);
                     value.raw = bin;
                 }
                 if (value.raw === "nope") {
                     pendingFiles.splice(index, 1);
                     console.log("upload failed");
-                } else {
-                    console.log("asking fileID");
-                    serverConnection.send(JSON.stringify({type: "fileID", name: value.name, i: value.i, id: id}))
                 }
             });
             // do sth with text
@@ -38,8 +35,8 @@ function readmultifiles(files) {
     }
 
     for (var i = 0; i < files.length; i++) {
-        console.log('this name of file ' + files[i].name);
-        console.log('this file ' + i);
+        console.log('file: ' + files[i].name);
+        // console.log('this file ' + i);
         pendingFiles.push({name: files[i].name, i: i, raw: "nope"});
         setup_reader(files[i], i);
     }
@@ -48,7 +45,19 @@ function readmultifiles(files) {
 }
 
 function uploadFile(){
+    pendingFiles.forEach(function (value, index) {
+        if(value.raw !== "nope"){
+            console.log("asking fileID");
+            serverConnection.send(JSON.stringify({type: "fileID", name: value.name, i: value.i, id: id}))
+        }
+    });
+    inputI4.setAttribute("max", localStorage.length);
+}
 
+function setImg(){
+    var i = inputI4.value;
+    console.log("setting img "+i);
+    document.getElementById('preview').src = JSON.parse(localStorage.getItem(localStorage.key(i-1))).raw;
 }
 
 function sendImg() {

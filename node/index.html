@@ -102,22 +102,31 @@
                multiple="">
     </label>
     <button id="uploadButton" name="uploadButton" onclick="uploadFile()">
-        Request File
+        Upload File
     </button>
-    <br>
-    <label for="message">Choose File
+    <br/>
+    <label for="message">Choose File from list
         <input type="number" min="1" max="1" name="fi" id="fk" placeholder="i in Files" inputmode="latin" size=60
                maxlength=120>
     </label>
     <button id="reqButton" name="requestButton" onclick="reqFile()">
         Request File
     </button>
+    <br/>
+    <label for="message">Choose File from localStorage
+        <input type="number" min="1" max="1" name="fi" id="flc" placeholder="i in Files" inputmode="latin" size=60
+               maxlength=120>
+    </label>
+    <button id="setImgButton" name="setImgButton" onclick="setImg()">
+        Show Image
+    </button>
 
     <div id="fltable"></div>
 
     <div id="bag">
-        <ul/>
-        <img id="preview" src="">
+        <ul>
+        </ul>
+        <img name="preview" id="preview" src=" ">
     </div>
 </div>
 
