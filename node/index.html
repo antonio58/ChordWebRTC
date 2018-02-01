@@ -118,15 +118,25 @@
                maxlength=120>
     </label>
     <button id="setImgButton" name="setImgButton" onclick="setImg()">
-        Show Image
+        Preview Image
     </button>
-
+    <button id="startCarousel" name="startCarousel" onclick="changeCarouselStatus(true)">
+        Start Carousel
+    </button>
+    <button id="stopCarousel" name="stopCarousel" onclick="changeCarouselStatus(false)">
+        Stop Carousel
+    </button>
     <div id="fltable"></div>
-
+    <p>Carousel</p>
+    <img name="carousel" id="carousel" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAsSURBVEhL7c0xAQAwDASh+jf9lcCU7TDA27ECKqACKqACKqACKqACKqDjYPuLVfSmMPfafQAAAABJRU5ErkJggg==">
+    <p id="carouselName"></p>
+    <div id="site-slider"></div>
+    <p>Preview</p>
     <div id="bag">
         <ul>
         </ul>
-        <img name="preview" id="preview" src=" ">
+        <img name="preview" id="preview" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAsSURBVEhL7c0xAQAwDASh+jf9lcCU7TDA27ECKqACKqACKqACKqACKqDjYPuLVfSmMPfafQAAAABJRU5ErkJggg==">
+        <p id="previewName"></p>
     </div>
 </div>
 

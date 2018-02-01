@@ -62,7 +62,6 @@ function pageReady() {
     inputI4 = document.getElementById('flc');
     inputI4.setAttribute("max", localStorage.length);
 
-    //fingerTable = newFingerTable();
 }
 
 //envia mensagem ao servidor para se ligar à rede p2p
@@ -262,7 +261,7 @@ function handleReceiveMessage(event) {
             //TODO esta porra não é uma função que aceite thens. Vê lá se te safas doutra maneira. Obrigado
             n = findKeySuccessor(msg.key, msg.source);
             if (n === "pending") {
-                console.log("pending");
+                // console.log("pending");
                 pendingFinds.push({"type": msg.type, "source": msg.source, "key": msg.key, "id": msg.id});
             }
             else if (n === "succ") {
@@ -550,15 +549,16 @@ function handleReceiveMessage(event) {
                     fileList.push(value);
                 }
             });
+            fileList.sort();
             break;
 
         case "reqFile":
             console.log("File requisition!");
-            console.log("sending file:"+localStorage.getItem(msg.key)+" key: "+msg.key);
-
             var data = localStorage.getItem(msg.key);
+
             n = checkTables(msg.id, false);
             if (n.t === "FT") {
+                console.log("sending file:"+JSON.parse(localStorage.getItem(msg.key)).name+" key: "+msg.key+" i:"+n.n);
                 fingerTable[n.n].sendChannel.send(JSON.stringify({
                     type: "file",
                     id: id,
@@ -588,8 +588,8 @@ function handleReceiveMessage(event) {
             break;
 
         case "file":
-            console.log("msg.data: " + msg.data);
-            console.log("msg.data parsed: " + JSON.parse(msg.data));
+            // console.log("msg.data: " + msg.data);
+            // console.log("msg.data parsed: " + JSON.parse(msg.data));
             var aux = JSON.parse(msg.data);
 
             if (!fileList.includes(msg.fileid)) {
@@ -777,42 +777,6 @@ function printFL(event) {
         el.appendChild(txtNode);
         fileListBox.appendChild(el);
     });
-}
-
-//procura sucessor
-function findKeySuccessor(key, source) {
-    s = source;
-    if (source === null || source === undefined)
-        s = id;
-
-    var bik = bigInt(key, 16);
-    var biid = bigInt(id, 16);
-    var bisuc = bigInt(fingerTable[0].id, 16);
-
-    if ((bik.greater(biid) && bisuc.greaterOrEquals(bik) && bisuc.greater(biid)) ||
-        (bik.greaterOrEquals(bisuc) && bik.greater(biid) && biid.greaterOrEquals(bisuc)) ||
-        (bik.greater(biid) && bisuc.greaterOrEquals(bik) && biid.greater(bisuc))) {
-        // console.log("(key) succ!");
-        return "succ";
-    }
-    for (var i = fingerTable.length - 1; i >= 0; i--) {
-        var bif = bigInt(fingerTable[i].id, 16);
-        if ((bik.greater(biid) && bik.greaterOrEquals(bif) && bif.greater(biid)) ||
-            (bif.greater(bik) && bif.greater(biid) && biid.greater(bik)) ||
-            (biid.greater(bif) && bik.greater(bif) && biid.greater(bik))) {
-            // console.log("sent findKsucc to finger " + i);
-            fingerTable[i].sendChannel.send(JSON.stringify({
-                "id": id,
-                "type": "findKSucc",
-                "key": key,
-                "source": s
-            }));
-            console.log("pending to "+i);
-            return "pending";
-        }
-    }
-    return null;
-
 }
 
 function fkBtnHandler() {

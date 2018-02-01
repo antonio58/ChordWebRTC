@@ -2,6 +2,7 @@ var ffcount = 0;
 var scanCount = 0;
 var distCount = 0;
 var pings = [50];
+var fileCount = 0;
 
 
 //novo elemento da tabela de peers temporarios
@@ -201,42 +202,78 @@ function fingerIndex(i) {
     return aux;
 }
 
+//procura sucessor
+function findKeySuccessor(key, source) {
+    s = source;
+    if (source === null || source === undefined)
+        s = id;
+
+    var bik = bigInt(key, 16);
+    var biid = bigInt(id, 16);
+    var bisuc = bigInt(fingerTable[0].id, 16);
+
+    if ((bik.greater(biid) && bisuc.greaterOrEquals(bik) && bisuc.greater(biid)) ||
+        (bik.greaterOrEquals(bisuc) && bik.greater(biid) && biid.greaterOrEquals(bisuc)) ||
+        (bik.greater(biid) && bisuc.greaterOrEquals(bik) && biid.greater(bisuc))) {
+        // console.log("(key) succ!");
+        return "succ";
+    }
+    for (var i = fingerTable.length - 1; i >= 0; i--) {
+        var bif = bigInt(fingerTable[i].id, 16);
+        if ((bik.greater(biid) && bik.greaterOrEquals(bif) && bif.greater(biid)) ||
+            (bif.greater(bik) && bif.greater(biid) && biid.greater(bik)) ||
+            (biid.greater(bif) && bik.greater(bif) && biid.greater(bik))) {
+            // console.log("sent findKsucc to finger " + i);
+            fingerTable[i].sendChannel.send(JSON.stringify({
+                "id": id,
+                "type": "findKSucc",
+                "key": key,
+                "source": s
+            }));
+            // console.log("pending to "+i);
+            return "pending";
+        }
+    }
+    return null;
+
+}
+
+function ownFile(key) {
+    var bik = bigInt(key, 16);
+    var biid = bigInt(id, 16);
+    var bisuc = bigInt(fingerTable[0].id, 16);
+
+    if ((bik.greater(biid) && bisuc.greaterOrEquals(bik) && bisuc.greater(biid)) ||
+        (bik.greaterOrEquals(bisuc) && bik.greater(biid) && biid.greaterOrEquals(bisuc)) ||
+        (bik.greater(biid) && bisuc.greaterOrEquals(bik) && biid.greater(bisuc))) {
+        return false;
+    }
+    for (var i = fingerTable.length - 1; i >= 0; i--) {
+        var bif = bigInt(fingerTable[i].id, 16);
+        if ((bik.greater(biid) && bik.greaterOrEquals(bif) && bif.greater(biid)) ||
+            (bif.greater(bik) && bif.greater(biid) && biid.greater(bik)) ||
+            (biid.greater(bif) && bik.greater(bif) && biid.greater(bik))) {
+            return false;
+        }
+    }
+    return true;
+}
+
 //função que vai verificando e reparando ligações quebradas
 function checkConn() {
     var fleg = false;
-
-
-
     fingerTable.forEach(function (value, index) {
-        /*var flog = true;
-        /*var j = 0;
-        var ji = -1;
-        pings.forEach(function (value2, index2) {
-            if(value2.id === value.id)
-                flog = false;
-                j = value2.c;
-                ji = index2;
-        });
-        if(flog){
-            pings.push({id: value.id, c:0});
-        }
-
-        if(value.receiveChannel && pings[ji]) {
-            try{
-            value.sendChannel.send(JSON.stringify({type: "ping", id: id}));}
-            catch (e) {console.log("sendChannel não definido");}
-            pings[ji].c++;
-        }*/
         pings[index]++;
-        try{
-            value.sendChannel.send(JSON.stringify({type: "ping", id: id}));}
+        try {
+            value.sendChannel.send(JSON.stringify({type: "ping", id: id}));
+        }
         catch (e) {
             pings[index]++;
             console.log("sendChannel não definido");
         }
         // value.sendChannel.send(JSON.stringify({type: "ping", id: id}));
 
-        if (value.sendChannel.readyState === "connecting" || value.sendChannel.readyState === "closed" || pings[index]>10) {
+        if (value.sendChannel.readyState === "connecting" || value.sendChannel.readyState === "closed" || pings[index] > 10) {
 
             if (downList.indexOf(index) >= 0) {
                 console.log("cc +1 in " + index);
@@ -298,18 +335,20 @@ function restartFinger(i) {
 //pergunta a determinado nó o seu sucessor
 function askSucc() {
 
-    if (ffcount >= fingerTable.length-1)
+    if (ffcount >= fingerTable.length - 1)
         ffcount = 0;
     if (fingerTable[ffcount] !== undefined && fingerTable[ffcount].receiveChannel !== undefined) {
         // console.log("asking finger " + ffcount + " his succ");
         try {
             fingerTable[ffcount].sendChannel.send(JSON.stringify({type: "askSucc", id: id}));
-        } catch (e) {console.log("error: "+e);}
+        } catch (e) {
+            console.log("error: " + e);
+        }
     }
     ffcount++;
 }
 
-function scanFiles(){
+function scanFiles() {
     inputI3.setAttribute("max", fileList.length);
     inputI4.setAttribute("max", localStorage.length);
     for (i = 0; i < localStorage.length; i++) {
@@ -317,34 +356,48 @@ function scanFiles(){
             fileList.push(localStorage.key(i));
     }
 
-    if (scanCount >= fingerTable.length-1)
+    if (fileCount / 10 > fileList.length - 1)
+        fileCount = 0;
+    if (fileCount % 10 === 0) {
+        fileList.splice(fileCount / 10, 1);
+        // console.log(fileCount/10);
+        fileList.sort();
+    }
+    fileCount++;
+    if (scanCount >= fingerTable.length) {
+        // fileList = [];
         scanCount = 0;
+    }
     if (fingerTable[scanCount] !== undefined) {
         // console.log("asking finger " + scanCount + " his file list");
-        try {fingerTable[scanCount].sendChannel.send(JSON.stringify({type: "getFileList", id: id}));} catch (e) {console.log("error: "+e);}
+        try {
+            fingerTable[scanCount].sendChannel.send(JSON.stringify({type: "getFileList", id: id}));
+        } catch (e) {
+            console.log("error: " + e);
+        }
     }
     scanCount++;
 }
 
-function distributeFiles(){
-    if(distCount >= localStorage.length)
+function distributeFiles() {
+    if (distCount >= localStorage.length)
         distCount = 0;
-    if(localStorage.key(distCount) !== undefined && localStorage.length>0 && fingerTable.length > 0) {
+    if (localStorage.key(distCount) !== undefined && localStorage.length > 0 && fingerTable.length > 0) {
         k = localStorage.key(distCount);
         n = findKeySuccessor(k, id);
         if (n === "succ") {
-            console.log("!");
+            // console.log("!");
             fingerTable[0].sendChannel.send(JSON.stringify({
                 "type": "askF",
                 "fileid": k,
                 "id": id
             }));
-        }else if (n===null) {
-            console.log("null fks :"+n+" / k: "+k);
+        } else if (n === null) {
+            // console.log("null fks :"+n+" / k: "+k);
         }
         else if (n.includes("pending")) {
-            console.log("pending ::"+k);
-            pendingFinds.push({"type": "askF", "source": id, "key":k, "id": id});
+            // console.log("pending ::"+k);
+            pendingFinds.push({"type": "askF", "source": id, "key": k, "id": id});
         }
         // else console.log("none: "+n);
         distCount++;
